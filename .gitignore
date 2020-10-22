@@ -2,8 +2,5 @@ env
 db.sqlite3
 app/DjangoOne/settings.py
 .env.dev
-.env.prod
-.env.prod.db
-nginx/nginx.conf
 #app/static/js
 app/entrypoint.sh

@@ -42,6 +42,7 @@
     .mensaje{
         font-size: 14px;
         color:red;
+        text-align: center;
     }
     .udis{
         margin: 20px auto 40px auto;
@@ -71,6 +72,7 @@
         <input type=date id='fecha_inicial'><br>
         <input type=date id='fecha_final'><br>
         <input type='button' class="btn" id='btn' onclick="validar_fechas()" value='Establecer'>
+        <input type='button' class="btn" id='btn_l' onclick="limpiar_datos()" value='Limpiar'>
 
     </div>
 
@@ -84,6 +86,7 @@
 
     <div class='udis'>
         <p class='subtitle'>Dólares</p>
+        <p id='mensaje_dolar_faltante' class='mensaje'></p>
         
         <div id='list_dolares' class='udis_data'><p>Fecha --> valor</p><hr></div>
         <div id='dolares_min_max_av' class='udis_data'></div>
@@ -105,13 +108,46 @@
 <script>
     var btn = document.getElementById('btn')
     var mensaje = document.getElementById('mensaje')
-    
+    var band_clic = false
+
+    function limpiar_datos(){
+       
+        if(band_clic){
+
+            var list_udis = $("#list_udis")           
+            list_udis.empty();
+            list_udis.hide();
+            
+            var udis_min_max_av = $("#udis_min_max_av")           
+            udis_min_max_av.empty();
+            udis_min_max_av.hide();
+
+           
+            var list_dolares = $("#list_dolares")
+            list_dolares.empty();
+            list_dolares.hide();
+
+            var dolares_min_max_av = $("#dolares_min_max_av")
+            dolares_min_max_av.empty(); 
+            dolares_min_max_av.hide();
+
+            var c_1 = $("#container")
+            c_1.empty() 
+            var c_2 = $("#container_2")
+            c_2.empty()            
+                         
+                
+
+        }
+    }
 
     function validar_fechas(){
         //debugger
+      
         var inicial = document.getElementById('fecha_inicial')
         var final = document.getElementById('fecha_final')
         if(inicial.value && final.value){
+            band_clic=true
             console.log(inicial.value,final.value)
             mensaje.innerHTML=''
             var fechas = {
@@ -132,7 +168,7 @@
     var csrf = document.getElementById('csrf').value
   
     function send_data(fechas){
-    
+        limpiar_datos()
         //debugger
         $.ajax({
             url : 'http://localhost:8002/banxico/',  
@@ -141,6 +177,8 @@
             contentType: 'application/json; charset=utf-8',
             headers:{'X-CSRFToken': csrf},
             success: function (data) { 
+                var mensaje_dolar = document.getElementById('mensaje_dolar_faltante')
+                mensaje_dolar.innerHTML=''
                 console.log(data)
                 var fechas = []
                 var udis = []
@@ -148,7 +186,9 @@
                 var fechas_dolares = []
                 if(data.udis==null && data.dolares==null){
                     mensaje.innerHTML='rango de fechas erroneos'
-                }else{
+                }
+                
+                else{
                 for(i=0;i<data.udis.length;i++){
                     var fecha = data.udis[i].fecha
                     var udi = data.udis[i].dato
@@ -156,26 +196,91 @@
                     udis.push(parseFloat(udi))
 
                 }
-                for(i=0;i<data.dolares.length;i++){
-                    var dolar = data.dolares[i].dato
-                    dolares.push(parseFloat(dolar))
-                    var fecha = data.udis[i].fecha
-                    fechas_dolares.push(fecha)
+                if(data.dolares!=null){
+
+                    for(i=0;i<data.dolares.length;i++){
+                        var dolar = data.dolares[i].dato
+                        dolares.push(parseFloat(dolar))
+                        var fecha = data.udis[i].fecha
+                        fechas_dolares.push(fecha)
+                    }
+                    var prom_dolares = promedio(dolares)
+                    var orden_dolar = dolares.sort()
+                    var max_dolar = orden_dolar[orden_dolar.length-1]
+                    var min_dolar = orden_dolar[0]
+
+
+                    document.getElementById('list_dolares').style.display='block'
+                    var list_dolares = $("#list_dolares")
+               
+                    $.each(data.dolares, function(index, item) {                
+                                   
+                        list_dolares.append(                    
+                            '<div class="">'                                        
+                            +   '<p class="">'+item.fecha+' -->$'+item.dato+'</p>'                                                                        
+                            +'</div>'                
+                            );            
+                    });
+
+                    document.getElementById('dolares_min_max_av').style.display='block'
+                    var dolares_min_max_av = $("#dolares_min_max_av")
+                                
+                    dolares_min_max_av.append(                    
+                        '<div class="">'                                        
+                        +   '<p class="">Máximo: '+max_dolar+'</p>'
+                        +   '<p class="">Promedio: '+prom_dolares+'</p>'
+                        +   '<p class="">Mínimo: '+min_dolar+'</p>'                                                                        
+                        +'</div>'                
+                    );
+
+                    //dolar_chart
+                    Highcharts.chart('container_2', {
+                        chart: {
+                            type: 'line'
+                        },
+                        title: {
+                            text: 'Valores de dólares'
+                        },
+                        subtitle: {
+                            text: 'Fuente: Banxico'
+                        },
+                        xAxis: {
+                            categories: fechas_dolares
+                        },
+                        yAxis: {
+                            title: {
+                            text: 'Valores (MXN)'
+                            }
+                        },
+                        plotOptions: {
+                            line: {
+                            dataLabels: {
+                                enabled: true
+                            },
+                            enableMouseTracking: false
+                            }
+                        },
+                        series: [{
+                            name: 'Dólares',
+                            data: dolares
+                        }]
+                    });//fin_dolar_chart
+
+                }else if(data.dolares==null && data.udis!=null){
+                    var mensaje_dolar = document.getElementById('mensaje_dolar_faltante')
+                    mensaje_dolar.innerHTML='en fines de semana no hay datos'
                 }
+
+
+                
                 console.log(fechas,udis,dolares)
 
                 var prom_udis = promedio(udis)
-                var prom_dolares = promedio(dolares)
-
-            
                 var orden_udis = udis.sort()
-                var orden_dolar = dolares.sort()
-                
+               
                 var max_udis = orden_udis[orden_udis.length-1]
-                var max_dolar = orden_dolar[orden_dolar.length-1]
-
                 var min_udis = orden_udis[0]
-                var min_dolar = orden_dolar[0]
+                
 
                 console.log(max_udis,min_udis)
                 console.log(max_dolar,min_dolar)
@@ -205,62 +310,9 @@
                     +'</div>'                
                 );     
                 
-                document.getElementById('list_dolares').style.display='block'
-                var list_dolares = $("#list_dolares")
-               
-                $.each(data.dolares, function(index, item) {                
-                                   
-                    list_dolares.append(                    
-                        '<div class="">'                                        
-                        +   '<p class="">'+item.fecha+' -->$'+item.dato+'</p>'                                                                        
-                        +'</div>'                
-                        );            
-                });
-
-                document.getElementById('dolares_min_max_av').style.display='block'
-                var dolares_min_max_av = $("#dolares_min_max_av")
-                             
-                dolares_min_max_av.append(                    
-                    '<div class="">'                                        
-                    +   '<p class="">Máximo: '+max_dolar+'</p>'
-                    +   '<p class="">Promedio: '+prom_dolares+'</p>'
-                    +   '<p class="">Mínimo: '+min_dolar+'</p>'                                                                        
-                    +'</div>'                
-                );
+                
                 //fin_tables
-               
-                //dolar_chart
-                Highcharts.chart('container_2', {
-                    chart: {
-                        type: 'line'
-                    },
-                    title: {
-                        text: 'Valores de dólares'
-                    },
-                    subtitle: {
-                        text: 'Fuente: Banxico'
-                    },
-                    xAxis: {
-                        categories: fechas_dolares
-                    },
-                    yAxis: {
-                        title: {
-                        text: 'Valores (MXN)'
-                        }
-                    },
-                    plotOptions: {
-                        line: {
-                        dataLabels: {
-                            enabled: true
-                        },
-                        enableMouseTracking: false
-                        }
-                    },
-                    series: [{
-                        name: 'Dólares',
-                        data: dolares
-                    }]
-                    });//fin_dolar_chart
+            
                     //udis_chart
                     Highcharts.chart('container', {
                     chart: {
